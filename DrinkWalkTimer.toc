@@ -1,0 +1,9 @@
+## Interface: 11507
+## Title: Drink Walk Timer
+## Notes: Tracks mana ticks for efficient drink walking
+## Author: JacobHuber
+## Version: 1.0
+## IconTexture: Interface\Icons\INV_Drink_18
+DrinkWalkTimer.lua
+
+## SavedVariables: DWT_Settings
