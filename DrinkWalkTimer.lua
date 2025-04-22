@@ -28,6 +28,11 @@ end
 
 DWT_Settings = DWT_Settings or {}
 
+-- user option: show the bar even when mana is full
+if DWT_Settings.showAtFullMana == nil then
+    DWT_Settings.showAtFullMana = false   -- default: hide at 100 % mana
+end
+
 local tickBar = CreateFrame("StatusBar", "DrinkWalkTimer_Bar", UIParent, "BackdropTemplate")
 tickBar:SetSize(200, 12)
 tickBar:SetMinMaxValues(0, tickInterval)
@@ -90,7 +95,7 @@ f:SetScript("OnUpdate", function(_, elapsed)
     local maxMana = UnitPowerMax("player", 0)
     local inCombat = UnitAffectingCombat("player")
     local isDead = UnitIsDeadOrGhost("player")
-    if inCombat or currentMana >= maxMana or isDead then
+    if inCombat or isDead or (currentMana >= maxMana and not DWT_Settings.showAtFullMana) then
         tickBar:Hide()
         return
     end
@@ -215,3 +220,19 @@ f:SetScript("OnEvent", function(_, event, arg)
         f.lastMana = currentMana
     end
 end)
+
+---------------------------------------------------------------------------
+-- Slash command:  /dwt full   → toggles showing the bar at 100 % mana
+---------------------------------------------------------------------------
+SLASH_DWT1 = "/dwt"
+SlashCmdList["DWT"] = function(msg)
+    msg = (msg or ""):lower():match("^%s*(.-)%s*$")
+    if msg == "full" or msg == "showfull" then
+        DWT_Settings.showAtFullMana = not DWT_Settings.showAtFullMana
+        print(addonName .. ": Show bar at full mana is now " ..
+              (DWT_Settings.showAtFullMana and "ON" or "OFF"))
+    else
+        print("DrinkWalkTimer commands:")
+        print("  /dwt full   - toggle showing the bar at 100% mana")
+    end
+end
