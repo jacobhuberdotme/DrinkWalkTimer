@@ -32,13 +32,22 @@ DWT_Settings = DWT_Settings or {}
 if DWT_Settings.showAtFullMana == nil then
     DWT_Settings.showAtFullMana = false   -- default: hide at 100 % mana
 end
+if DWT_Settings.height == nil then
+    DWT_Settings.height = 12        -- default height
+end
 
 local tickBar = CreateFrame("StatusBar", "DrinkWalkTimer_Bar", UIParent, "BackdropTemplate")
-tickBar:SetSize(200, 12)
+tickBar:SetSize(DWT_Settings.width or 200, DWT_Settings.height or 12)
 tickBar:SetMinMaxValues(0, tickInterval)
 tickBar:SetStatusBarTexture("Interface\\TARGETINGFRAME\\UI-StatusBar")
 tickBar:SetStatusBarColor(0.6, 0.8, 1.0) 
 tickBar:SetMovable(true)
+if tickBar.SetResizable then
+    tickBar:SetResizable(true)
+    if tickBar.SetMinResize then
+        tickBar:SetMinResize(100, 8)      -- only a minimum; no maximum
+    end
+end
 tickBar:EnableMouse(true)
 tickBar:RegisterForDrag("LeftButton")
 tickBar:SetScript("OnDragStart", tickBar.StartMoving)
@@ -68,10 +77,100 @@ marker:SetWidth(2)
 marker:SetHeight(tickBar:GetHeight())
 marker:SetPoint("LEFT", tickBar, "LEFT", 150, 0)  
 
-tickBar:HookScript("OnSizeChanged", function(self, width)
+tickBar:HookScript("OnSizeChanged", function(self, width, height)
+    -- Enforce minimums live while dragging
+    if width < 100 then
+        width = 100
+        self:SetWidth(100)
+    end
+    local h = height or self:GetHeight()
+    if h < 8 then
+        h = 8
+        self:SetHeight(8)
+    end
+
+    -- Re‑position / resize marker
     marker:ClearAllPoints()
+    marker:SetHeight(h)
     marker:SetPoint("LEFT", self, "LEFT", width * 0.75, 0)
 end)
+
+-- ---------- Resize handles ----------
+local function createHandle(anchorPoint, xOffset)
+    local h = CreateFrame("Button", nil, tickBar)
+    h:SetSize(12, 12)
+    h:SetPoint(anchorPoint, tickBar, anchorPoint, xOffset, 0)
+    h:SetNormalTexture("Interface\\CHATFRAME\\UI-ChatIM-SizeGrabber-Up")
+    h:SetHighlightTexture("Interface\\CHATFRAME\\UI-ChatIM-SizeGrabber-Highlight")
+    h:SetPushedTexture("Interface\\CHATFRAME\\UI-ChatIM-SizeGrabber-Down")
+    if h:GetNormalTexture() then
+        h:GetNormalTexture():SetVertexColor(0.4, 0.4, 0.4)  -- darker default
+    end
+
+    h:SetScript("OnEnter", function(self)
+        self:GetParent():SetAlpha(1)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Click & drag to resize", 1,1,1)
+        GameTooltip:Show()
+    end)
+    h:SetScript("OnLeave", function(self)
+        GameTooltip:Hide()
+        self:GetParent():SetAlpha(0.6)
+    end)
+
+    h:RegisterForDrag("LeftButton")
+    -- OnDragStart/OnDragStop will be set after rightHandle is created for hover logic
+    return h
+end
+
+-- single resize handle (bottom‑right) for width/height
+local rightHandle = createHandle("BOTTOMRIGHT", -2)
+
+-- Default invisible but clickable
+rightHandle:SetAlpha(0)
+
+local function showHandle()
+    rightHandle:SetAlpha(1)
+end
+local function hideHandle()
+    -- only hide if neither bar nor handle is being hovered
+    if not tickBar:IsMouseOver() and not rightHandle:IsMouseOver() then
+        rightHandle:SetAlpha(0)
+    end
+end
+
+tickBar:HookScript("OnEnter", showHandle)
+tickBar:HookScript("OnLeave", hideHandle)
+rightHandle:HookScript("OnLeave", hideHandle)
+
+rightHandle:SetScript("OnDragStart", function(self)
+    showHandle()
+    if tickBar.StartSizing then
+        tickBar:StartSizing("BOTTOMRIGHT")
+    end
+end)
+rightHandle:SetScript("OnDragStop", function(self)
+    if tickBar.StopMovingOrSizing then
+        tickBar:StopMovingOrSizing()
+    end
+    if DWT_Settings then
+        local w = tickBar:GetWidth()
+        local hgt = tickBar:GetHeight()
+        -- Clamp minimum height to 8 px, no maximum
+        if hgt < 8 then
+            hgt = 8
+            tickBar:SetHeight(8)
+        end
+        DWT_Settings.width  = w
+        DWT_Settings.height = hgt
+    end
+    -- reposition / resize marker
+    marker:ClearAllPoints()
+    marker:SetHeight(tickBar:GetHeight())
+    marker:SetPoint("LEFT", tickBar, "LEFT", tickBar:GetWidth() * 0.75, 0)
+    hideHandle()
+end)
+
 tickBar:Hide()
 
 local comboPulse = comboLabel:CreateAnimationGroup()
@@ -150,10 +249,20 @@ f:SetScript("OnEvent", function(_, event, arg)
 
         if DWT_Settings.pos then
             local point, x, y = unpack(DWT_Settings.pos)
+            tickBar:ClearAllPoints()
             tickBar:SetPoint(point, UIParent, point, x, y)
         else
+            tickBar:ClearAllPoints()
             tickBar:SetPoint("CENTER")
         end
+        -- apply saved width if exists
+        if DWT_Settings.width then
+            tickBar:SetWidth(DWT_Settings.width)
+        end
+        if DWT_Settings.height then
+            tickBar:SetHeight(DWT_Settings.height)
+        end
+        tickBar:SetAlpha(0.6)  -- semi-transparent until hover
         C_Timer.After(0.1, function()
             local width = tickBar:GetWidth()
             marker:SetPoint("LEFT", tickBar, "LEFT", width * 0.75, 0)
