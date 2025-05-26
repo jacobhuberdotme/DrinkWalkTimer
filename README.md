@@ -2,6 +2,8 @@
 
 Maximum mana, minimum downtime.
 
+![image](https://github.com/user-attachments/assets/5cd15c23-958f-4013-9ddc-cda1e6ec88a3)
+
 **Drink Walk Timer** tracks the hidden server mana‑tick so you know exactly when to sit, sip, and sprint. Perfect for healers and casters who want to grab every drop of mana without standing still.
 
 ***
